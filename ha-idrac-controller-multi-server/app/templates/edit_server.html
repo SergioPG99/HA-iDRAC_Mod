@@ -8,7 +8,7 @@
 <body>
     <div class="main-container">
         <h1>Edit Server: {{ server.alias }}</h1>
-        <p><a href="../../servers">&laquo; Back to Server List</a></p>
+        <p><a href="../servers">&laquo; Back to Server List</a></p>
 
         <div class="container">
             <form action="../update/{{ server.alias }}" method="POST">
@@ -18,13 +18,6 @@
                     <div class="form-group"><label for="idrac_username">Username</label><input type="text" id="idrac_username" name="idrac_username" value="{{ server.idrac_username }}" required></div>
                     <div class="form-group"><label for="idrac_password">New Password</label><input type="password" id="idrac_password" name="idrac_password" placeholder="Leave blank to keep existing"></div>
                     <div class="form-group"><label for="enabled">Enabled</label><select id="enabled" name="enabled"><option value="true" {% if server.enabled %}selected{% endif %}>Yes</option><option value="false" {% if not server.enabled %}selected{% endif %}>No</option></select></div>
-                    <div class="form-group">
-                        <label for="fan_control_enabled">Fan Control</label>
-                        <select id="fan_control_enabled" name="fan_control_enabled">
-                            <option value="true" {% if server.fan_control_enabled %}selected{% endif %}>Enabled</option>
-                            <option value="false" {% if not server.fan_control_enabled %}selected{% endif %}>Disabled (Monitor Only)</option>
-                        </select>
-                    </div>
                 </div>
 
                 <hr>
