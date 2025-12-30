@@ -76,15 +76,19 @@ def validate_and_convert_fan_curve(fan_curve, temp_unit, log_level):
         if 'temp' not in point or 'speed' not in point:
             return None, f"Fan curve point {i} missing 'temp' or 'speed' key"
         
+        # Check for None values before conversion
+        if point['temp'] is None or point['speed'] is None:
+            return None, f"Fan curve point {i} has None value for temp or speed"
+        
         try:
             temp = float(point['temp'])
             speed = int(point['speed'])
         except (ValueError, TypeError):
             return None, f"Fan curve point {i} has invalid temp or speed value"
         
-        # Validate that temp is not None and is a valid number
-        if temp is None or temp < -273:  # Below absolute zero is invalid
-            return None, f"Fan curve point {i} has invalid temperature value"
+        # Validate that temp is a valid number (absolute zero is -273.15°C)
+        if temp < -273:
+            return None, f"Fan curve point {i} temperature {temp}°C is below absolute zero"
         
         # Validate ranges
         if speed < 0 or speed > 100:
@@ -325,22 +329,20 @@ def main_control_loop(mqtt_handler):
                                 target_fan_speed_val = fan_curve[-1]['speed']
                             else:
                                 # Find the two points to interpolate between
-                                lower_point = fan_curve[0]
-                                upper_point = fan_curve[1]
-                                
+                                # Search for the interval containing hottest_cpu_temp_c
                                 for i in range(len(fan_curve) - 1):
                                     if fan_curve[i]['temp'] <= hottest_cpu_temp_c < fan_curve[i+1]['temp']:
                                         lower_point = fan_curve[i]
                                         upper_point = fan_curve[i+1]
+                                        
+                                        # Linear interpolation
+                                        temp_range = upper_point['temp'] - lower_point['temp']
+                                        speed_range = upper_point['speed'] - lower_point['speed']
+                                        if temp_range > 0:
+                                            target_fan_speed_val = lower_point['speed'] + ((hottest_cpu_temp_c - lower_point['temp']) / temp_range * speed_range)
+                                        else:
+                                            target_fan_speed_val = lower_point['speed']
                                         break
-                                
-                                # Linear interpolation
-                                temp_range = upper_point['temp'] - lower_point['temp']
-                                speed_range = upper_point['speed'] - lower_point['speed']
-                                if temp_range > 0:
-                                    target_fan_speed_val = lower_point['speed'] + ((hottest_cpu_temp_c - lower_point['temp']) / temp_range * speed_range)
-                                else:
-                                    target_fan_speed_val = lower_point['speed']
                             
                             # Clamp to valid range and convert to int
                             target_fan_speed_val = max(0, min(100, int(target_fan_speed_val)))
