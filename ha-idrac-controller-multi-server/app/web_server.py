@@ -71,6 +71,7 @@ def add_server():
         "idrac_username": request.form.get('idrac_username'),
         "idrac_password": request.form.get('idrac_password'),
         "enabled": True,
+        "fan_control_enabled": request.form.get('fan_control_enabled', 'true') == 'true',
         "fan_mode": "simple", # Default to simple mode
         "base_fan_speed_percent": int(request.form.get('base_fan_speed_percent')),
         "low_temp_threshold": int(request.form.get('low_temp_threshold')),
@@ -90,6 +91,7 @@ def edit_server_form(alias):
         server_to_edit.setdefault('fan_curve', [])
         server_to_edit.setdefault('pid_config', {}) # This is the fix
         server_to_edit.setdefault('target_temp', 55) # Keep this for backward compatibility
+        server_to_edit.setdefault('fan_control_enabled', True)
         return render_template('edit_server.html', server=server_to_edit)
     flash(f"Server '{alias}' not found.", "error")
     return redirect('servers')
@@ -109,6 +111,7 @@ def update_server(alias):
     if new_password:
         server_to_update['idrac_password'] = new_password
     server_to_update['enabled'] = request.form.get('enabled') == 'true'
+    server_to_update['fan_control_enabled'] = request.form.get('fan_control_enabled', 'true') == 'true'
     
     # Update fan control mode
     server_to_update['fan_mode'] = request.form.get('fan_mode')

@@ -24,6 +24,7 @@ options:
   idrac_password: ""           # Secret
 
   # Fan Control Logic
+  fan_control_enabled: true    # Enable/disable fan control (temps/MQTT still work)
   temperature_unit: "C"        # C or F
   base_fan_speed_percent: 20   # Default fan speed if below low_temp_threshold
   low_temp_threshold: 45       # Temp (in selected unit) to maintain base_fan_speed
@@ -47,6 +48,7 @@ schema:
   idrac_password: "password"
 
   # Fan Control Logic
+  fan_control_enabled: "bool"
   temperature_unit: "list(C|F)"
   base_fan_speed_percent: "int(0,100)"
   low_temp_threshold: "int(0,100)"

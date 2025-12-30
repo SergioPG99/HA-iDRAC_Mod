@@ -80,6 +80,7 @@ def load_and_configure(mqtt_handler): # Pass mqtt_handler to set device_info
         "idrac_password": os.getenv("IDRAC_PASSWORD"),
         "check_interval_seconds": int(os.getenv("CHECK_INTERVAL_SECONDS", "60")),
         "log_level": os.getenv("LOG_LEVEL", "info").lower(),
+        "fan_control_enabled": os.getenv("FAN_CONTROL_ENABLED", "true").lower() == "true",
         "temperature_unit": os.getenv("TEMPERATURE_UNIT", "C").upper(),
         "base_fan_speed_percent": int(os.getenv("BASE_FAN_SPEED_PERCENT", "20")),
         "low_temp_threshold": int(os.getenv("LOW_TEMP_THRESHOLD", "45")),
@@ -239,27 +240,32 @@ def main_control_loop(mqtt_handler):
 
             # --- Fan Control Logic ---
             target_fan_speed_display = "N/A" 
-            if hottest_cpu_temp_c is not None:
-                low_thresh_c = addon_options["low_temp_threshold_c"]
-                crit_thresh_c = addon_options["critical_temp_threshold_c"]
-                if hottest_cpu_temp_c >= crit_thresh_c:
-                    print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= CRITICAL ({crit_thresh_c}°C). Dell auto.", flush=True)
+            if addon_options["fan_control_enabled"]:
+                if hottest_cpu_temp_c is not None:
+                    low_thresh_c = addon_options["low_temp_threshold_c"]
+                    crit_thresh_c = addon_options["critical_temp_threshold_c"]
+                    if hottest_cpu_temp_c >= crit_thresh_c:
+                        print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= CRITICAL ({crit_thresh_c}°C). Dell auto.", flush=True)
+                        ipmi_manager.apply_dell_fan_control_profile()
+                        target_fan_speed_display = "Dell Auto"
+                    elif hottest_cpu_temp_c >= low_thresh_c:
+                        target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
+                        print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
+                        ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                        target_fan_speed_display = target_fan_speed_val
+                    else: 
+                        target_fan_speed_val = addon_options["base_fan_speed_percent"]
+                        print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) < LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
+                        ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                        target_fan_speed_display = target_fan_speed_val
+                else:
+                    print(f"[WARNING] Hottest CPU temp N/A. Applying Dell auto fans for safety.", flush=True)
                     ipmi_manager.apply_dell_fan_control_profile()
-                    target_fan_speed_display = "Dell Auto"
-                elif hottest_cpu_temp_c >= low_thresh_c:
-                    target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
-                    print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
-                    ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
-                    target_fan_speed_display = target_fan_speed_val
-                else: 
-                    target_fan_speed_val = addon_options["base_fan_speed_percent"]
-                    print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) < LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
-                    ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
-                    target_fan_speed_display = target_fan_speed_val
+                    target_fan_speed_display = "Dell Auto (Safety)"
             else:
-                print(f"[WARNING] Hottest CPU temp N/A. Applying Dell auto fans for safety.", flush=True)
+                print(f"[{log_level.upper()}] Fan control is disabled. Setting to Dell Auto.", flush=True)
                 ipmi_manager.apply_dell_fan_control_profile()
-                target_fan_speed_display = "Dell Auto (Safety)"
+                target_fan_speed_display = "Dell Auto (Disabled)"
             
             # --- Update Shared Status File for Web UI ---
             current_parsed_status_for_file = {
