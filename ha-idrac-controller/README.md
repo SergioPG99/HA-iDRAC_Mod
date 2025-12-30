@@ -86,6 +86,7 @@ After installation, you **must** configure the add-on before starting it.
         * `idrac_username`: (Required) Your iDRAC username (default: `root`).
         * `idrac_password`: (Required) Your iDRAC password.
     * **Fan Control Logic (Simple Mode):**
+        * `fan_control_enabled`: (Default: `true`) Enable or disable automatic fan control. When disabled, the add-on will still monitor temperatures and publish them to MQTT, but will set fans to Dell's automatic mode instead of controlling them.
         * `temperature_unit`: `C` (Celsius) or `F` (Fahrenheit). Temperatures from iDRAC are read in Celsius; if you set this to 'F', thresholds you enter will be assumed to be in Fahrenheit and converted internally. Display in the web UI will also respect this.
         * `base_fan_speed_percent`: (Default: `20`) The fan speed (0-100%) to use when the hottest CPU core is below the `low_temp_threshold`.
         * `low_temp_threshold`: (Default: `45`) The CPU temperature (in your selected `temperature_unit`) above which fans will switch from `base_fan_speed_percent` to `high_temp_fan_speed_percent`.
