@@ -81,6 +81,7 @@ def load_and_configure(mqtt_handler): # Pass mqtt_handler to set device_info
         "check_interval_seconds": int(os.getenv("CHECK_INTERVAL_SECONDS", "60")),
         "log_level": os.getenv("LOG_LEVEL", "info").lower(),
         "fan_control_enabled": os.getenv("FAN_CONTROL_ENABLED", "true").lower() == "true",
+        "fan_control_mode": os.getenv("FAN_CONTROL_MODE", "simple").lower(),
         "temperature_unit": os.getenv("TEMPERATURE_UNIT", "C").upper(),
         "base_fan_speed_percent": int(os.getenv("BASE_FAN_SPEED_PERCENT", "20")),
         "low_temp_threshold": int(os.getenv("LOW_TEMP_THRESHOLD", "45")),
@@ -91,6 +92,13 @@ def load_and_configure(mqtt_handler): # Pass mqtt_handler to set device_info
         "mqtt_username": os.getenv("MQTT_USERNAME", ""),
         "mqtt_password": os.getenv("MQTT_PASSWORD", "")
     }
+    
+    # Load fan curve if provided
+    fan_curve_env = os.getenv("FAN_CURVE", "[]")
+    try:
+        addon_options["fan_curve"] = json.loads(fan_curve_env)
+    except json.JSONDecodeError:
+        addon_options["fan_curve"] = []
     log_level = addon_options['log_level']
     print(f"[{log_level.upper()}] Add-on options loaded: IDRAC_IP={addon_options['idrac_ip']}, LogLevel={log_level}", flush=True)
 
@@ -242,22 +250,72 @@ def main_control_loop(mqtt_handler):
             target_fan_speed_display = "N/A" 
             if addon_options["fan_control_enabled"]:
                 if hottest_cpu_temp_c is not None:
-                    low_thresh_c = addon_options["low_temp_threshold_c"]
                     crit_thresh_c = addon_options["critical_temp_threshold_c"]
+                    
+                    # Check critical temperature first (applies to both modes)
                     if hottest_cpu_temp_c >= crit_thresh_c:
                         print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= CRITICAL ({crit_thresh_c}°C). Dell auto.", flush=True)
                         ipmi_manager.apply_dell_fan_control_profile()
                         target_fan_speed_display = "Dell Auto"
-                    elif hottest_cpu_temp_c >= low_thresh_c:
-                        target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
-                        print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
-                        ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
-                        target_fan_speed_display = target_fan_speed_val
-                    else: 
-                        target_fan_speed_val = addon_options["base_fan_speed_percent"]
-                        print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) < LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
-                        ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
-                        target_fan_speed_display = target_fan_speed_val
+                    elif addon_options["fan_control_mode"] == "curve":
+                        # Curve mode: Multi-point interpolation
+                        fan_curve = addon_options.get("fan_curve", [])
+                        if len(fan_curve) >= 2:
+                            # Sort curve by temperature
+                            fan_curve_sorted = sorted(fan_curve, key=lambda p: p.get('temp', 0))
+                            
+                            # Find the two points to interpolate between
+                            lower_point = fan_curve_sorted[0]
+                            upper_point = fan_curve_sorted[-1]
+                            
+                            for i in range(len(fan_curve_sorted) - 1):
+                                if fan_curve_sorted[i]['temp'] <= hottest_cpu_temp_c < fan_curve_sorted[i+1]['temp']:
+                                    lower_point = fan_curve_sorted[i]
+                                    upper_point = fan_curve_sorted[i+1]
+                                    break
+                            
+                            # Calculate fan speed with linear interpolation
+                            if hottest_cpu_temp_c < lower_point['temp']:
+                                target_fan_speed_val = lower_point['speed']
+                            elif hottest_cpu_temp_c >= upper_point['temp']:
+                                target_fan_speed_val = upper_point['speed']
+                            else:
+                                temp_range = upper_point['temp'] - lower_point['temp']
+                                speed_range = upper_point['speed'] - lower_point['speed']
+                                if temp_range > 0:
+                                    target_fan_speed_val = lower_point['speed'] + ((hottest_cpu_temp_c - lower_point['temp']) / temp_range * speed_range)
+                                else:
+                                    target_fan_speed_val = lower_point['speed']
+                            
+                            target_fan_speed_val = int(target_fan_speed_val)
+                            print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) CURVE mode. Fan: {target_fan_speed_val}%", flush=True)
+                            ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                            target_fan_speed_display = target_fan_speed_val
+                        else:
+                            # Not enough curve points, fall back to simple mode
+                            print(f"[WARNING] Fan curve mode enabled but insufficient points ({len(fan_curve)}). Falling back to simple mode.", flush=True)
+                            low_thresh_c = addon_options["low_temp_threshold_c"]
+                            if hottest_cpu_temp_c >= low_thresh_c:
+                                target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
+                                ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                                target_fan_speed_display = target_fan_speed_val
+                            else:
+                                target_fan_speed_val = addon_options["base_fan_speed_percent"]
+                                ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                                target_fan_speed_display = target_fan_speed_val
+                    else:
+                        # Simple mode: 3-tier control (default)
+                        low_thresh_c = addon_options["low_temp_threshold_c"]
+                        if hottest_cpu_temp_c >= low_thresh_c:
+                            target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
+                            print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
+                            ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                            target_fan_speed_display = target_fan_speed_val
+                        else: 
+                            target_fan_speed_val = addon_options["base_fan_speed_percent"]
+                            print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) < LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
+                            ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                            target_fan_speed_display = target_fan_speed_val
                 else:
                     print(f"[WARNING] Hottest CPU temp N/A. Applying Dell auto fans for safety.", flush=True)
                     ipmi_manager.apply_dell_fan_control_profile()

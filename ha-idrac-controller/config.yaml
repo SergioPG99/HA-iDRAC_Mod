@@ -25,11 +25,20 @@ options:
 
   # Fan Control Logic
   fan_control_enabled: true    # Enable/disable fan control (temps/MQTT still work)
+  fan_control_mode: "simple"   # simple (3-tier) or curve (multi-point interpolation)
   temperature_unit: "C"        # C or F
+  
+  # Simple Mode Settings (3-tier control)
   base_fan_speed_percent: 20   # Default fan speed if below low_temp_threshold
   low_temp_threshold: 45       # Temp (in selected unit) to maintain base_fan_speed
   high_temp_fan_speed_percent: 50 # Fan speed for temps between low_temp and critical_temp
   critical_temp_threshold: 65  # Temp (in selected unit) at which to hand control to iDRAC
+  
+  # Curve Mode Settings (multi-stage interpolation)
+  # Define multiple temperature/fan-speed points for smooth transitions
+  # Example: [{temp: 40, speed: 20}, {temp: 50, speed: 35}, {temp: 60, speed: 60}, {temp: 65, speed: 80}]
+  # System will interpolate linearly between points
+  fan_curve: []
 
   # Polling and Logging
   check_interval_seconds: 30
@@ -49,11 +58,13 @@ schema:
 
   # Fan Control Logic
   fan_control_enabled: "bool"
+  fan_control_mode: "list(simple|curve)"
   temperature_unit: "list(C|F)"
   base_fan_speed_percent: "int(0,100)"
   low_temp_threshold: "int(0,100)"
   high_temp_fan_speed_percent: "int(0,100)"
   critical_temp_threshold: "int(0,100)"
+  fan_curve: "list?"
 
   # Polling and Logging
   check_interval_seconds: "int(5,)"
