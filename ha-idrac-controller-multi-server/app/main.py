@@ -147,7 +147,7 @@ class ServerWorker:
                             target_fan_speed = int(speed)
                             self.ipmi.apply_user_fan_control_profile(target_fan_speed)
                 else:
-                     self.ipmi.apply_dell_fan_control_profile()
+                    self.ipmi.apply_dell_fan_control_profile()
             else:
                 self._log("info", "Fan control is disabled for this server. Setting to Dell Auto.")
                 self.ipmi.apply_dell_fan_control_profile()
