@@ -63,14 +63,14 @@ This add-on connects to your server's iDRAC interface using IPMI to:
     * Click the **three-dots menu** (⋮) in the top right corner and select **"Repositories"**.
     * In the "Manage add-on repositories" dialog, paste the following URL:
         ```
-        [https://github.com/Aesgarth/HA-iDRAC](https://github.com/Aesgarth/HA-iDRAC)
+        https://github.com/SergioPG99/HA-iDRAC_Mod
         ```
     * Click **"ADD"** and then **"CLOSE"**.
 
 2.  **Install the Add-on:**
     * Refresh your browser page if needed.
-    * Your "HA iDRAC Controller" add-on should now appear in the Add-on Store (you might find it at the bottom under a section like "Aesgarth's Custom iDRAC Add-on" or in the main list).
-    * Click on the "HA iDRAC Controller" add-on.
+    * Your "HA iDRAC Controller (SergioPG99 Mod)" add-on should now appear in the Add-on Store (you might find it at the bottom under a section like "SergioPG99's iDRAC Add-on" or in the main list).
+    * Click on the "HA iDRAC Controller (SergioPG99 Mod)" add-on.
     * Click **"INSTALL"**. This will download and build the add-on, which may take a few minutes.
 
 ## Configuration
@@ -163,7 +163,7 @@ If MQTT is configured correctly, the following entities will be automatically di
 
 ## Contributing / Reporting Issues
 
-Please open an issue on the [GitHub repository](https://github.com/Aesgarth/HA-iDRAC/issues) for any bugs, feature requests, or questions.
+Please open an issue on the [GitHub repository](https://github.com/SergioPG99/HA-iDRAC_Mod/issues) for any bugs, feature requests, or questions.
 
 ## License
 
