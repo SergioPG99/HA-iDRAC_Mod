@@ -85,12 +85,23 @@ After installation, you **must** configure the add-on before starting it.
         * `idrac_ip`: (Required) The IP address or hostname of your server's iDRAC.
         * `idrac_username`: (Required) Your iDRAC username (default: `root`).
         * `idrac_password`: (Required) Your iDRAC password.
-    * **Fan Control Logic (Simple Mode):**
+    * **Fan Control:**
+        * `fan_control_enabled`: (Default: `true`) Enable or disable automatic fan control. When disabled, the add-on will still monitor temperatures and publish them to MQTT, but will set fans to Dell's automatic mode instead of controlling them.
+        * `fan_control_mode`: (Default: `simple`) Choose the fan control strategy:
+            * **`simple`**: 3-tier control with base, high, and critical thresholds (original behavior)
+            * **`curve`**: Multi-stage control with smooth interpolation between custom temperature/speed points
         * `temperature_unit`: `C` (Celsius) or `F` (Fahrenheit). Temperatures from iDRAC are read in Celsius; if you set this to 'F', thresholds you enter will be assumed to be in Fahrenheit and converted internally. Display in the web UI will also respect this.
+    * **Simple Mode Settings** (used when `fan_control_mode` is `simple`):
         * `base_fan_speed_percent`: (Default: `20`) The fan speed (0-100%) to use when the hottest CPU core is below the `low_temp_threshold`.
         * `low_temp_threshold`: (Default: `45`) The CPU temperature (in your selected `temperature_unit`) above which fans will switch from `base_fan_speed_percent` to `high_temp_fan_speed_percent`.
         * `high_temp_fan_speed_percent`: (Default: `50`) The fan speed (0-100%) to use when the hottest CPU core is at or above `low_temp_threshold` but below `critical_temp_threshold`.
         * `critical_temp_threshold`: (Default: `65`) The CPU temperature (in your selected `temperature_unit`) at or above which fan control will be handed back to the iDRAC (Dell's automatic mode) for safety.
+    * **Curve Mode Settings** (used when `fan_control_mode` is `curve`):
+        * `fan_curve`: (Default: `[]`) Define multiple temperature/fan-speed control points. The system will smoothly interpolate between points for precise control.
+            * Example: `[{"temp": 40, "speed": 20}, {"temp": 50, "speed": 35}, {"temp": 60, "speed": 60}, {"temp": 65, "speed": 80}]`
+            * This creates a smooth fan curve: 20% at 40°C, ramping up to 35% at 50°C, 60% at 60°C, and 80% at 65°C
+            * Requires at least 2 points. Temperatures below the lowest point use the lowest speed, temperatures above the highest point use the highest speed.
+        * Note: The `critical_temp_threshold` still applies in curve mode - if temperature reaches this threshold, control returns to Dell's automatic mode for safety.
     * **Polling and Logging:**
         * `check_interval_seconds`: (Default: `30`) How often (in seconds) to check temperatures and adjust fans.
         * `log_level`: (Default: `info`) Set the verbosity of logs. Options: `trace`, `debug`, `info`, `notice`, `warning`, `error`, `fatal`. Use `debug` or `trace` for troubleshooting.

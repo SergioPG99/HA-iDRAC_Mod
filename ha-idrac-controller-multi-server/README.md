@@ -18,6 +18,7 @@ This add-on connects to your servers' iDRAC interfaces using IPMI to:
 ## Features
 
 * **Multi-Server Support:** Monitor and control all your Dell PowerEdge servers from a single add-on instance.
+* **Independent Fan Control:** Each server can have fan control enabled or disabled independently. When disabled, the add-on continues to monitor temperatures and publish them to MQTT while letting iDRAC manage fans automatically.
 * **Advanced Fan Control:** Choose your preferred fan management mode on a per-server basis:
     * **Simple Thresholds:** A 3-tier system (Base, High, Critical) for straightforward fan management.
     * **Multi-Point Curve:** Define a custom temperature-to-fan-speed curve for smooth and granular control.
@@ -86,6 +87,7 @@ Configuration is now handled almost entirely through the add-on's Web UI.
     * Click **OPEN WEB UI**.
     * Click the **Manage Servers** link.
     * Use the "Add New Server" form to add your first server. The form will be pre-filled with the global defaults you just set.
+    * **Fan Control:** You can enable or disable fan control for each server using the "Fan Control" dropdown. When set to "Disabled (Monitor Only)", the add-on will monitor temperatures and publish them to MQTT but will not actively control fan speeds.
     * After adding or editing servers, a link will appear prompting you to restart the add-on. You **must restart the add-on** for your changes to take effect.
 
 ## Web UI (Ingress Panel)

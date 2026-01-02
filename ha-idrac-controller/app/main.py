@@ -63,6 +63,52 @@ def fahrenheit_to_celsius(fahrenheit):
     if fahrenheit is None: return None
     return round((fahrenheit - 32) * 5/9, 1)
 
+def validate_and_convert_fan_curve(fan_curve, temp_unit, log_level):
+    """Validate fan curve structure and convert temperatures to Celsius if needed."""
+    if not fan_curve or len(fan_curve) < 2:
+        return None, "Fan curve requires at least 2 points"
+    
+    validated_curve = []
+    for i, point in enumerate(fan_curve):
+        # Validate required keys
+        if not isinstance(point, dict):
+            return None, f"Fan curve point {i} must be a dictionary"
+        if 'temp' not in point or 'speed' not in point:
+            return None, f"Fan curve point {i} missing 'temp' or 'speed' key"
+        
+        # Check for None values before conversion
+        if point['temp'] is None or point['speed'] is None:
+            return None, f"Fan curve point {i} has None value for temp or speed"
+        
+        try:
+            temp = float(point['temp'])
+            speed = int(point['speed'])
+        except (ValueError, TypeError):
+            return None, f"Fan curve point {i} has invalid temp or speed value"
+        
+        # Validate that temp is a valid number (absolute zero is -273.15°C)
+        if temp < -273:
+            return None, f"Fan curve point {i} temperature {temp}°C is below absolute zero"
+        
+        # Validate ranges
+        if speed < 0 or speed > 100:
+            return None, f"Fan curve point {i} speed must be 0-100%, got {speed}%"
+        
+        # Convert temperature if needed
+        if temp_unit == "F":
+            temp_c = fahrenheit_to_celsius(temp)
+            if temp_c is None:
+                return None, f"Fan curve point {i} temperature conversion failed"
+            temp = temp_c
+        
+        validated_curve.append({'temp': temp, 'speed': speed})
+    
+    # Sort by temperature
+    validated_curve.sort(key=lambda p: p['temp'])
+    
+    print(f"[{log_level.upper()}] Validated fan curve with {len(validated_curve)} points", flush=True)
+    return validated_curve, None
+
 def save_current_status_to_file(status_dict):
     try:
         with open(STATUS_FILE, 'w') as f:
@@ -80,6 +126,8 @@ def load_and_configure(mqtt_handler): # Pass mqtt_handler to set device_info
         "idrac_password": os.getenv("IDRAC_PASSWORD"),
         "check_interval_seconds": int(os.getenv("CHECK_INTERVAL_SECONDS", "60")),
         "log_level": os.getenv("LOG_LEVEL", "info").lower(),
+        "fan_control_enabled": os.getenv("FAN_CONTROL_ENABLED", "true").lower() == "true",
+        "fan_control_mode": os.getenv("FAN_CONTROL_MODE", "simple").lower(),
         "temperature_unit": os.getenv("TEMPERATURE_UNIT", "C").upper(),
         "base_fan_speed_percent": int(os.getenv("BASE_FAN_SPEED_PERCENT", "20")),
         "low_temp_threshold": int(os.getenv("LOW_TEMP_THRESHOLD", "45")),
@@ -90,6 +138,13 @@ def load_and_configure(mqtt_handler): # Pass mqtt_handler to set device_info
         "mqtt_username": os.getenv("MQTT_USERNAME", ""),
         "mqtt_password": os.getenv("MQTT_PASSWORD", "")
     }
+    
+    # Load fan curve if provided
+    fan_curve_env = os.getenv("FAN_CURVE", "[]")
+    try:
+        addon_options["fan_curve"] = json.loads(fan_curve_env)
+    except json.JSONDecodeError:
+        addon_options["fan_curve"] = []
     log_level = addon_options['log_level']
     print(f"[{log_level.upper()}] Add-on options loaded: IDRAC_IP={addon_options['idrac_ip']}, LogLevel={log_level}", flush=True)
 
@@ -135,6 +190,19 @@ def load_and_configure(mqtt_handler): # Pass mqtt_handler to set device_info
         addon_options["low_temp_threshold_c"] = float(addon_options["low_temp_threshold"])
         addon_options["critical_temp_threshold_c"] = float(addon_options["critical_temp_threshold"])
         print(f"[{log_level.upper()}] Temp thresholds (C input): Low={addon_options['low_temp_threshold_c']}C, Critical={addon_options['critical_temp_threshold_c']}C", flush=True)
+
+    # Validate and convert fan curve if using curve mode
+    if addon_options["fan_control_mode"] == "curve":
+        validated_curve, error = validate_and_convert_fan_curve(
+            addon_options.get("fan_curve", []), 
+            temp_unit, 
+            log_level
+        )
+        if error:
+            print(f"[WARNING] Fan curve validation failed: {error}. Falling back to simple mode.", flush=True)
+            addon_options["fan_control_mode"] = "simple"
+        else:
+            addon_options["fan_curve"] = validated_curve
 
 
 def main_control_loop(mqtt_handler):
@@ -239,27 +307,81 @@ def main_control_loop(mqtt_handler):
 
             # --- Fan Control Logic ---
             target_fan_speed_display = "N/A" 
-            if hottest_cpu_temp_c is not None:
-                low_thresh_c = addon_options["low_temp_threshold_c"]
-                crit_thresh_c = addon_options["critical_temp_threshold_c"]
-                if hottest_cpu_temp_c >= crit_thresh_c:
-                    print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= CRITICAL ({crit_thresh_c}°C). Dell auto.", flush=True)
+            if addon_options["fan_control_enabled"]:
+                if hottest_cpu_temp_c is not None:
+                    crit_thresh_c = addon_options["critical_temp_threshold_c"]
+                    
+                    # Check critical temperature first (applies to both modes)
+                    if hottest_cpu_temp_c >= crit_thresh_c:
+                        print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= CRITICAL ({crit_thresh_c}°C). Dell auto.", flush=True)
+                        ipmi_manager.apply_dell_fan_control_profile()
+                        target_fan_speed_display = "Dell Auto"
+                    elif addon_options["fan_control_mode"] == "curve":
+                        # Curve mode: Multi-point interpolation (curve already validated and converted)
+                        fan_curve = addon_options.get("fan_curve", [])
+                        if fan_curve and len(fan_curve) >= 2:
+                            # Handle edge cases first
+                            if hottest_cpu_temp_c <= fan_curve[0]['temp']:
+                                # Below or at lowest point
+                                target_fan_speed_val = fan_curve[0]['speed']
+                            elif hottest_cpu_temp_c >= fan_curve[-1]['temp']:
+                                # At or above highest point
+                                target_fan_speed_val = fan_curve[-1]['speed']
+                            else:
+                                # Find the two points to interpolate between
+                                # Search for the interval containing hottest_cpu_temp_c
+                                for i in range(len(fan_curve) - 1):
+                                    if fan_curve[i]['temp'] <= hottest_cpu_temp_c < fan_curve[i+1]['temp']:
+                                        lower_point = fan_curve[i]
+                                        upper_point = fan_curve[i+1]
+                                        
+                                        # Linear interpolation
+                                        temp_range = upper_point['temp'] - lower_point['temp']
+                                        speed_range = upper_point['speed'] - lower_point['speed']
+                                        if temp_range > 0:
+                                            target_fan_speed_val = lower_point['speed'] + ((hottest_cpu_temp_c - lower_point['temp']) / temp_range * speed_range)
+                                        else:
+                                            target_fan_speed_val = lower_point['speed']
+                                        break
+                            
+                            # Clamp to valid range and convert to int
+                            target_fan_speed_val = max(0, min(100, int(target_fan_speed_val)))
+                            print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) CURVE mode. Fan: {target_fan_speed_val}%", flush=True)
+                            ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                            target_fan_speed_display = target_fan_speed_val
+                        else:
+                            # Shouldn't reach here due to validation, but fallback to simple mode
+                            print(f"[WARNING] Fan curve invalid. Falling back to simple mode.", flush=True)
+                            low_thresh_c = addon_options["low_temp_threshold_c"]
+                            if hottest_cpu_temp_c >= low_thresh_c:
+                                target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
+                                ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                                target_fan_speed_display = target_fan_speed_val
+                            else:
+                                target_fan_speed_val = addon_options["base_fan_speed_percent"]
+                                ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                                target_fan_speed_display = target_fan_speed_val
+                    else:
+                        # Simple mode: 3-tier control (default)
+                        low_thresh_c = addon_options["low_temp_threshold_c"]
+                        if hottest_cpu_temp_c >= low_thresh_c:
+                            target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
+                            print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
+                            ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                            target_fan_speed_display = target_fan_speed_val
+                        else: 
+                            target_fan_speed_val = addon_options["base_fan_speed_percent"]
+                            print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) < LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
+                            ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
+                            target_fan_speed_display = target_fan_speed_val
+                else:
+                    print(f"[WARNING] Hottest CPU temp N/A. Applying Dell auto fans for safety.", flush=True)
                     ipmi_manager.apply_dell_fan_control_profile()
-                    target_fan_speed_display = "Dell Auto"
-                elif hottest_cpu_temp_c >= low_thresh_c:
-                    target_fan_speed_val = addon_options["high_temp_fan_speed_percent"]
-                    print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) >= LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
-                    ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
-                    target_fan_speed_display = target_fan_speed_val
-                else: 
-                    target_fan_speed_val = addon_options["base_fan_speed_percent"]
-                    print(f"[{log_level.upper()}] CPU ({hottest_cpu_temp_c}°C) < LOW ({low_thresh_c}°C). Fan: {target_fan_speed_val}%", flush=True)
-                    ipmi_manager.apply_user_fan_control_profile(target_fan_speed_val)
-                    target_fan_speed_display = target_fan_speed_val
+                    target_fan_speed_display = "Dell Auto (Safety)"
             else:
-                print(f"[WARNING] Hottest CPU temp N/A. Applying Dell auto fans for safety.", flush=True)
+                print(f"[{log_level.upper()}] Fan control is disabled. Setting to Dell Auto.", flush=True)
                 ipmi_manager.apply_dell_fan_control_profile()
-                target_fan_speed_display = "Dell Auto (Safety)"
+                target_fan_speed_display = "Dell Auto (Disabled)"
             
             # --- Update Shared Status File for Web UI ---
             current_parsed_status_for_file = {

@@ -40,6 +40,13 @@
                     <input type="password" id="idrac_password" name="idrac_password" required>
                 </div>
                 <div class="form-group">
+                    <label for="fan_control_enabled">Fan Control</label>
+                    <select id="fan_control_enabled" name="fan_control_enabled">
+                        <option value="true" selected>Enabled</option>
+                        <option value="false">Disabled (Monitor Only)</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label for="base_fan_speed_percent">Base Fan Speed (%)</label>
                     <input type="number" id="base_fan_speed_percent" name="base_fan_speed_percent" value="{{ defaults.base_fan_speed_percent }}" min="0" max="100">
                 </div>
