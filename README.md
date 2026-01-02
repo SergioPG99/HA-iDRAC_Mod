@@ -22,14 +22,14 @@ To install these add-ons:
 3.  Click the **three-dots menu (⋮)** in the top right and select **"Repositories"**.
 4.  Add the URL of this repository:
     ```
-    [https://github.com/Aesgarth/HA-iDRAC](https://github.com/Aesgarth/HA-iDRAC)
+    https://github.com/SergioPG99/HA-iDRAC_Mod
     ```
 5.  Click **"ADD"** and then **"CLOSE"**.
-6.  The add-ons from this repository will now be available in the store under the name specified in the `repository.yaml` file (e.g., "Aesgarth's Custom iDRAC Add-on"). Select the specific version you wish to install.
+6.  The add-ons from this repository will now be available in the store under the name specified in the `repository.yaml` file (e.g., "SergioPG99's iDRAC Add-on"). Select the specific version you wish to install.
 
 ## Issues and Contributions
 
-Please report any issues or make contributions via the [GitHub Issues page](https://github.com/Aesgarth/HA-iDRAC/issues), clearly stating which version of the add-on you are using.
+Please report any issues or make contributions via the [GitHub Issues page](https://github.com/SergioPG99/HA-iDRAC_Mod/issues), clearly stating which version of the add-on you are using.
 
 ## License
 

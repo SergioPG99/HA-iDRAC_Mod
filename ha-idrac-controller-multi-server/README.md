@@ -65,10 +65,10 @@ This add-on connects to your servers' iDRAC interfaces using IPMI to:
     * Click the **three-dots menu** (⋮) in the top right and select **Repositories**.
     * Paste the following URL and click **ADD**:
         ```
-        [https://github.com/Aesgarth/HA-iDRAC](https://github.com/Aesgarth/HA-iDRAC)
+        https://github.com/SergioPG99/HA-iDRAC_Mod
         ```
 2.  **Install the Add-on:**
-    * Refresh the page. You should now see the "HA iDRAC Controller BETA" add-on in the store.
+    * Refresh the page. You should now see the "HA iDRAC Controller Multi Server (SergioPG99 Mod)" add-on in the store.
     * Click on it and then click **INSTALL**.
 
 ## Configuration
@@ -117,7 +117,7 @@ For each server, the add-on will create a new device in Home Assistant with the 
 
 ## Contributing / Reporting Issues
 
-This is a development version. Please report any bugs, issues, or feature suggestions by opening an issue on the [GitHub repository](https://github.com/Aesgarth/HA-iDRAC/issues). Please provide logs and details about your server model if you encounter problems.
+This is a development version. Please report any bugs, issues, or feature suggestions by opening an issue on the [GitHub repository](https://github.com/SergioPG99/HA-iDRAC_Mod/issues). Please provide logs and details about your server model if you encounter problems.
 
 ## License
 
