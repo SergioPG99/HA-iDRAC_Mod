@@ -47,6 +47,58 @@ This project offers three different fan control modes with varying levels of pre
 * **Best for:** Maximum precision and automated temperature regulation with minimal temperature fluctuation
 * **Status:** ✅ Fully implemented and functional with persistent state management
 
+#### PID Controller Implementation Details
+The PID controller is a sophisticated control loop mechanism that:
+- **Proportional (P)**: Reacts to the current temperature error (difference from target)
+- **Integral (I)**: Accumulates past errors to eliminate steady-state error (includes anti-windup protection)
+- **Derivative (D)**: Predicts future error based on rate of change to prevent overshoot
+
+**Key Features:**
+- Persistent state storage: PID integral term is saved to `/data/pid_states.json` and restored on restart
+- Configurable gains: Kp, Ki, and Kd can be tuned per server
+- Safety limits: Output is clamped between 15% and 95% to protect hardware
+- Anti-windup: Prevents integral term from growing too large
+
+**Default PID Settings:**
+- Target Temperature: 55°C
+- Kp (Proportional Gain): 4.0
+- Ki (Integral Gain): 0.2
+- Kd (Derivative Gain): 0.1
+
+These values provide a good starting point for most Dell PowerEdge servers, but may need adjustment based on your specific hardware and thermal characteristics.
+
+## Dynamic Fan Control Development Status
+
+### Evolution of Fan Control Precision
+
+The project has evolved through three stages of increasing precision:
+
+1. **Initial Stage - Simple 3-Tier Control** ✅ Complete
+   - Basic temperature thresholds with discrete fan speed changes
+   - Works well for most use cases but can cause sudden fan speed changes
+
+2. **Intermediate Stage - Curve Mode** ✅ Complete
+   - Multi-point temperature/fan-speed interpolation
+   - Smooth transitions between different temperature zones
+   - More precise than 3-tier but still reactive rather than predictive
+
+3. **Advanced Stage - PID Controller** ✅ Complete
+   - Fully dynamic temperature regulation
+   - Automatically adjusts to maintain exact target temperature
+   - Predictive behavior reduces temperature fluctuations
+   - Persistent state allows seamless operation across restarts
+   - **Implementation Status**: Fully functional in Dev and Multi-Server versions
+
+### Current Development Focus
+
+The PID controller represents the most advanced fan control available in this project. It provides:
+- More precise temperature control than the initial 3-tier system
+- Smoother fan speed adjustments than curve mode
+- Automated adaptation to changing thermal loads
+- Professional-grade temperature regulation
+
+All three modes remain available to users, allowing them to choose the level of complexity and precision that best suits their needs.
+
 ## Adding this Repository to Home Assistant
 
 To install these add-ons:
