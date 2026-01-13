@@ -12,7 +12,9 @@ This add-on connects to your server's iDRAC interface using IPMI to:
 
 ## Features
 
-* **Dynamic Fan Control:** Adjusts fan speeds based on the hottest CPU core temperature using a 3-tier threshold system (Base, High, Critical).
+* **Dynamic Fan Control:** Adjusts fan speeds based on the hottest CPU core temperature. Two control modes are available:
+    * **Simple Mode (3-Tier):** Uses three temperature thresholds (Base, High, Critical) for straightforward fan management.
+    * **Curve Mode (Multi-Point Interpolation):** Define a custom temperature-to-fan-speed curve for smooth, granular control with linear interpolation between points.
 * **Server Monitoring:** Creates Home Assistant sensors for:
     * Individual CPU Temperatures
     * Hottest CPU Temperature
@@ -26,7 +28,6 @@ This add-on connects to your server's iDRAC interface using IPMI to:
 * **Web UI via Ingress:**
     * View live server status (temperatures, fan speeds, power).
     * View current fan control settings.
-    * (Future/Optional) Configure an advanced multi-point fan curve.
 * **Configurable:** Set iDRAC credentials, fan thresholds, temperature units, and MQTT details via the Home Assistant add-on configuration panel.
 
 ## Prerequisites
