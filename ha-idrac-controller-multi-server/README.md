@@ -22,7 +22,7 @@ This add-on connects to your servers' iDRAC interfaces using IPMI to:
 * **Advanced Fan Control:** Choose your preferred fan management mode on a per-server basis:
     * **Simple Thresholds:** A 3-tier system (Base, High, Critical) for straightforward fan management.
     * **Multi-Point Curve:** Define a custom temperature-to-fan-speed curve for smooth and granular control.
-    * **Target Temperature:** Set a desired CPU temperature, and the add-on will automatically adjust fan speeds to maintain it.
+    * **Target Temperature (PID Controller):** Set a desired CPU temperature (e.g., 55°C), and the add-on will use a PID (Proportional-Integral-Derivative) controller to automatically and precisely adjust fan speeds to maintain that temperature. PID state is persisted between restarts for optimal performance.
 * **Comprehensive Server Monitoring:** Creates a dedicated device in Home Assistant for each server with sensors for:
     * Individual CPU Temperatures
     * Hottest CPU Temperature
